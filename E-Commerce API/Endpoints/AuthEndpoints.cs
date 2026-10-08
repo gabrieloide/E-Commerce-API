@@ -6,8 +6,6 @@
 
     public static class AuthEndpoints
     {
-        private const string CREATE_USER = "CreateUser";
-
         public static void MapAuthEndpoints(this IEndpointRouteBuilder app)
         {
             var group = app.MapGroup("/api/auth");
@@ -18,13 +16,17 @@
 
         private static async Task<IResult> HandleRegister(RegisterDto dto, ECommerceDb db)
         {
-            if (dto == null)
+            if (string.IsNullOrEmpty(dto.Name) || string.IsNullOrEmpty(dto.Email) || string.IsNullOrEmpty(dto.Password))
             {
-                return Results.BadRequest();
+                return Results.BadRequest("Name, Email, and Password are required.");
             }
-            if (string.IsNullOrEmpty(dto.Name) || string.IsNullOrEmpty(dto.Email) || string.IsNullOrEmpty(dto.Role))
+
+            if (await db.Users.AnyAsync(u => u.Email.Equals(dto.Email, StringComparison.CurrentCultureIgnoreCase)))
             {
-                return Results.BadRequest("Name, Email, and Role are required.");
+                if(await db.Users.AnyAsync(u => u.Name == dto.Name)) 
+                    return Results.BadRequest("User already exists.");
+                
+                return Results.Conflict("email already exists.");
             }
 
             var user = new User
@@ -42,10 +44,6 @@
         }
         private static async Task<IResult> HandleLogin(LoginDto dto, ECommerceDb db)
         {
-            if (dto == null)
-            {
-                return Results.BadRequest();
-            }
             if (string.IsNullOrEmpty(dto.Email) || string.IsNullOrEmpty(dto.Password))
             {
                 return Results.BadRequest("Email and Password are required.");
@@ -56,9 +54,9 @@
                 return Results.Problem("Invalid email or password.", statusCode: 401);
             }
 
-            var userDTO = new UserDto(user.Id, user.Name, user.Email, user.Role);
+            var userDto = new UserDto(user.Id, user.Name, user.Email, user.Role);
 
-            return Results.Ok(userDTO);
+            return Results.Ok(userDto);
         }
     }
 }
