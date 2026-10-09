@@ -65,6 +65,18 @@ export const AppContent: React.FC = () => {
     fetchProducts();
   }, [searchQuery, selectedCategory, apiConfig]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('success') === 'true') {
+      showToast('¡Pago con Stripe completado con éxito! Gracias por tu compra.', 'success');
+      setCurrentTab('orders');
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (params.get('canceled') === 'true') {
+      showToast('El pago en Stripe fue cancelado.', 'info');
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col selection:bg-indigo-500 selection:text-white">
       {/* Top Navbar */}

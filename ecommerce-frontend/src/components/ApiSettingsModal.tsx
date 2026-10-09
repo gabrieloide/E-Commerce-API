@@ -34,22 +34,30 @@ export const ApiSettingsModal: React.FC<ApiSettingsModalProps> = ({
     setTesting(true);
     setTestResult(null);
     try {
-      // Test ping against /auth/login which already exists in the backend
-      const url = `${config.baseUrl}/auth/login`;
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: 'ping@test.com', password: 'ping' })
-      });
-      if (res.ok || res.status === 401) {
+      let base = (config.baseUrl || 'http://localhost:5175/api').trim().replace(/\/+$/, '');
+      if (!base.endsWith('/api')) {
+        base += '/api';
+      }
+
+      // Probamos el endpoint público /products (devuelve HTTP 200 con el catálogo cargado)
+      const url = `${base}/products`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        const count = Array.isArray(data) ? data.length : 0;
         setTestResult({
           success: true,
-          message: `¡Conexión exitosa! Tu backend de C# respondió (código HTTP ${res.status} ${res.statusText}). El servidor está activo y respondiendo.`
+          message: `¡Conexión exitosa! Tu backend de C# respondió con código HTTP 200 OK. Catálogo conectado en vivo con ${count} productos.`
+        });
+      } else if (res.status === 401) {
+        setTestResult({
+          success: true,
+          message: `¡Conexión exitosa! Tu backend de C# respondió con código HTTP 401. El servidor está activo y autenticando peticiones.`
         });
       } else {
         setTestResult({
           success: false,
-          message: `El servidor C# respondió con código HTTP ${res.status}: ${res.statusText}.`
+          message: `El servidor C# respondió con código HTTP ${res.status}: ${res.statusText}. Verifica que la ruta exista y termine en /api.`
         });
       }
     } catch (err: any) {

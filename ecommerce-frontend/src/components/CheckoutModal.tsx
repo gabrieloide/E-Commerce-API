@@ -66,6 +66,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         shippingAddress: address,
       });
 
+      if (response.checkoutUrl && response.checkoutUrl.startsWith('http')) {
+        clearCart();
+        showToast('Redirigiendo a la pasarela segura de Stripe...', 'info');
+        window.location.href = response.checkoutUrl;
+        return;
+      }
+
       setSuccessOrderId(response.orderId);
       clearCart();
       showToast('¡Pago procesado exitosamente!', 'success');

@@ -84,8 +84,12 @@ initMockStorage();
 async function fetchWithAuth<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const config = getApiConfig();
   const token = getStoredToken();
+  let base = (config.baseUrl || 'http://localhost:5175/api').trim().replace(/\/+$/, '');
+  if (!base.endsWith('/api')) {
+    base += '/api';
+  }
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-  const url = `${config.baseUrl}${cleanEndpoint}`;
+  const url = `${base}${cleanEndpoint}`;
 
   const headers = new Headers(options.headers || {});
   headers.set('Content-Type', 'application/json');
@@ -100,6 +104,23 @@ async function fetchWithAuth<T>(endpoint: string, options: RequestInit = {}): Pr
     });
 
     if (!response.ok) {
+      if (response.status === 401) {
+        if (endpoint.includes('/auth/login')) {
+          let msg = 'Credenciales inválidas: correo o contraseña incorrectos.';
+          try {
+            const errJson = await response.clone().json();
+            if (errJson.detail) msg = errJson.detail;
+          } catch {}
+          throw new Error(msg);
+        }
+        setStoredToken(null);
+        setStoredUser(null);
+        window.dispatchEvent(new Event('auth:unauthorized'));
+        throw new Error("No autorizado (401): Tu sesión anterior expiró. Se ha limpiado el token. Por favor haz clic en 'Iniciar Sesión' para generar tu token JWT real de C#.");
+      }
+      if (response.status === 403) {
+        throw new Error("Acceso denegado (403): Solo los usuarios con rol 'admin' tienen permiso para realizar esta acción.");
+      }
       let errorMessage = `HTTP Error ${response.status}: ${response.statusText}`;
       try {
         const cloned = response.clone();
@@ -140,13 +161,16 @@ export const api = {
           method: 'POST',
           body: JSON.stringify(req),
         });
-        const token = res.token || 'live_session_token';
-        const user = res.user || (res.email ? res : {
+        const token = res.token;
+        if (!token) {
+          throw new Error('El backend de C# no devolvió un token JWT.');
+        }
+        const user = res.user || {
           id: res.id || 1,
           email: req.email,
           name: req.email.split('@')[0],
           role: req.email.includes('admin') ? 'admin' : 'customer'
-        });
+        };
         setStoredToken(token);
         setStoredUser(user);
         return { token, user };
@@ -173,15 +197,15 @@ export const api = {
     async register(req: RegisterRequest): Promise<AuthResponse> {
       const config = getApiConfig();
       if (!config.useMock) {
-        const res = await fetchWithAuth<any>('/auth/register', {
+        await fetchWithAuth<any>('/auth/register', {
           method: 'POST',
           body: JSON.stringify(req),
         });
-        const token = res.token || 'registered_session_token';
-        const user = res.user || (res.email ? res : req);
-        setStoredToken(token);
-        setStoredUser(user);
-        return { token, user };
+        // Auto-login to obtain real HMAC-SHA256 JWT from C#
+        return api.auth.login({
+          email: req.email,
+          password: req.password
+        });
       }
 
       // Mock register simulation
@@ -217,7 +241,12 @@ export const api = {
           if (params?.search) query.append('search', params.search);
           if (params?.category) query.append('category', params.category);
           const queryStr = query.toString() ? `?${query.toString()}` : '';
-          return await fetchWithAuth<Product[]>(`/products${queryStr}`);
+          const res = await fetchWithAuth<any[]>(`/products${queryStr}`);
+          const list = Array.isArray(res) ? res : [];
+          return list.map(p => ({
+            ...p,
+            category: p.category || p.categoryNavigation?.name || 'General'
+          }));
         } catch {
           // Si aún no has implementado /api/products en C#, usamos la lista visual
           // para que puedas probar Auth y Registro sin que la página quede rota
@@ -241,7 +270,11 @@ export const api = {
     async getById(id: number): Promise<Product> {
       const config = getApiConfig();
       if (!config.useMock) {
-        return fetchWithAuth<Product>(`/products/${id}`);
+        const p = await fetchWithAuth<any>(`/products/${id}`);
+        return {
+          ...p,
+          category: p.category || p.categoryNavigation?.name || 'General'
+        };
       }
       const products: Product[] = JSON.parse(localStorage.getItem(PRODUCTS_KEY) || '[]');
       const product = products.find(p => p.id === id);
@@ -372,7 +405,36 @@ export const api = {
     async getAll(): Promise<Order[]> {
       const config = getApiConfig();
       if (!config.useMock) {
-        return fetchWithAuth<Order[]>('/orders');
+        try {
+          const rawOrders = await fetchWithAuth<any[]>('/checkout/orders').catch(() => fetchWithAuth<any[]>('/orders'));
+          const list = Array.isArray(rawOrders) ? rawOrders : (rawOrders ? [rawOrders] : []);
+          return list.map(o => ({
+            id: o.id,
+            userId: o.userId,
+            customerName: o.user?.name || o.shippingAddress?.split(',')[0] || `Usuario #${o.userId}`,
+            customerEmail: o.user?.email || 'cliente@nexus.com',
+            items: (o.items || []).map((i: any) => ({
+              productId: i.productId,
+              productName: i.product?.name || `Producto #${i.productId}`,
+              quantity: i.quantity,
+              unitPrice: i.unitPrice,
+              subtotal: (i.unitPrice || 0) * (i.quantity || 1)
+            })),
+            totalAmount: Number(o.totalAmount || 0),
+            status: o.status === 0 ? 'Pending' : (o.status === 2 ? 'Completed' : (typeof o.status === 'string' ? o.status : 'Pending')),
+            paymentStatus: 'Paid',
+            shippingAddress: {
+              fullName: o.shippingAddress?.split(',')[0] || 'Cliente',
+              addressLine1: o.shippingAddress || '',
+              city: '',
+              postalCode: '',
+              country: ''
+            },
+            createdAt: o.createdAt || new Date().toISOString()
+          }));
+        } catch {
+          return JSON.parse(localStorage.getItem(ORDERS_KEY) || '[]');
+        }
       }
       return JSON.parse(localStorage.getItem(ORDERS_KEY) || '[]');
     },

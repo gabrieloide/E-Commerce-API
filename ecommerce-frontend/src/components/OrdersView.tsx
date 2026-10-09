@@ -74,7 +74,7 @@ export const OrdersView: React.FC<{ onGoToShop: () => void }> = ({ onGoToShop })
                       </span>
                     </div>
                     <div className="text-xs text-slate-400 mt-0.5">
-                      Destino: {order.shippingAddress.city}, {order.shippingAddress.country}
+                      Destino: {order.shippingAddress.addressLine1 || 'Dirección registrada'}
                     </div>
                   </div>
                 </div>

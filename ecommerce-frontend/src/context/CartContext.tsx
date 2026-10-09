@@ -41,36 +41,36 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    setItems(prev => {
-      const existing = prev.find(item => item.productId === product.id);
-      if (existing) {
-        const newQty = existing.quantity + quantity;
-        if (newQty > product.stock) {
-          showToast(`Solo quedan ${product.stock} unidades disponibles en inventario.`, 'error');
-          return prev;
-        }
-        showToast(`Se actualizó la cantidad de "${product.name}" en el carrito.`, 'success');
-        return prev.map(item =>
-          item.productId === product.id ? { ...item, quantity: newQty } : item
-        );
-      } else {
-        if (quantity > product.stock) {
-          showToast(`Solo quedan ${product.stock} unidades disponibles.`, 'error');
-          return prev;
-        }
-        showToast(`"${product.name}" añadido al carrito.`, 'success');
-        return [
-          ...prev,
-          {
-            id: product.id,
-            productId: product.id,
-            product,
-            quantity,
-            price: product.price
-          }
-        ];
+    const existing = items.find(item => item.productId === product.id);
+    if (existing) {
+      const newQty = existing.quantity + quantity;
+      if (newQty > product.stock) {
+        showToast(`Solo quedan ${product.stock} unidades disponibles en inventario.`, 'error');
+        return;
       }
-    });
+      setItems(prev =>
+        prev.map(item =>
+          item.productId === product.id ? { ...item, quantity: newQty } : item
+        )
+      );
+      showToast(`Se actualizó la cantidad de "${product.name}" en el carrito.`, 'success');
+    } else {
+      if (quantity > product.stock) {
+        showToast(`Solo quedan ${product.stock} unidades disponibles.`, 'error');
+        return;
+      }
+      setItems(prev => [
+        ...prev,
+        {
+          id: product.id,
+          productId: product.id,
+          product,
+          quantity,
+          price: product.price
+        }
+      ]);
+      showToast(`"${product.name}" añadido al carrito.`, 'success');
+    }
   };
 
   const updateQuantity = (productId: number, quantity: number) => {
@@ -79,28 +79,26 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
+    const item = items.find(i => i.productId === productId);
+    if (item && quantity > item.product.stock) {
+      showToast(`Máximo ${item.product.stock} unidades en stock.`, 'info');
+      setItems(prev =>
+        prev.map(i => i.productId === productId ? { ...i, quantity: item.product.stock } : i)
+      );
+      return;
+    }
+
     setItems(prev =>
-      prev.map(item => {
-        if (item.productId === productId) {
-          if (quantity > item.product.stock) {
-            showToast(`Máximo ${item.product.stock} unidades en stock.`, 'info');
-            return { ...item, quantity: item.product.stock };
-          }
-          return { ...item, quantity };
-        }
-        return item;
-      })
+      prev.map(i => i.productId === productId ? { ...i, quantity } : i)
     );
   };
 
   const removeFromCart = (productId: number) => {
-    setItems(prev => {
-      const item = prev.find(i => i.productId === productId);
-      if (item) {
-        showToast(`"${item.product.name}" eliminado del carrito.`, 'info');
-      }
-      return prev.filter(i => i.productId !== productId);
-    });
+    const item = items.find(i => i.productId === productId);
+    if (item) {
+      showToast(`"${item.product.name}" eliminado del carrito.`, 'info');
+    }
+    setItems(prev => prev.filter(i => i.productId !== productId));
   };
 
   const clearCart = () => {

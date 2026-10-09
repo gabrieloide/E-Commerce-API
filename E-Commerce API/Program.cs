@@ -4,6 +4,11 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using E_Commerce_API;
+using E_Commerce_API.Options;
+using Stripe;
+using TokenService = E_Commerce_API.Services.TokenService;
+using E_Commerce_API.Services;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,15 +20,24 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("FrontendPolicy", policy =>
     {
-        policy.WithOrigins("http://localhost:5173")
+        policy.WithOrigins("http://localhost:5173", "http://127.0.0.1:5173")
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
 });
 
+StripeConfiguration.ApiKey = builder.Configuration["Stripe:Secret Key"];
+
+
 var key = builder.Configuration["Jwt:Key"];
 var issuer = builder.Configuration["Jwt:Issuer"];
 var audience = builder.Configuration["Jwt:Audience"];
+
+var jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>();
+
+builder.Services.AddSingleton(jwtOptions);
+builder.Services.AddScoped<TokenService>();
+builder.Services.AddScoped<PaymentService>();
 
 var keyHandler = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key));
 
@@ -47,6 +61,11 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 var app = builder.Build();
 
 app.UseCors("FrontendPolicy");
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.MapAuthEndpoints();
+app.MapProductsEndpoints();
+app.MapCheckoutEndpoints();
 
 app.Run();

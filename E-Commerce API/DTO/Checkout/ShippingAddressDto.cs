@@ -5,5 +5,6 @@ public record ShippingAddressDto(
     string AddressLine1,
     string City,
     string PostalCode,
-    string Country
+    string Country,
+    string? State = null
 );

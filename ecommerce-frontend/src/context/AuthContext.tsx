@@ -33,6 +33,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(storedUser);
     }
     setIsLoading(false);
+
+    const handleUnauthorized = () => {
+      setToken(null);
+      setUser(null);
+    };
+
+    window.addEventListener('auth:unauthorized', handleUnauthorized);
+    return () => {
+      window.removeEventListener('auth:unauthorized', handleUnauthorized);
+    };
   }, []);
 
   const login = async (credentials: LoginRequest) => {
@@ -73,8 +83,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const quickLoginAs = async (role: 'admin' | 'customer') => {
-    const email = role === 'admin' ? 'admin@nexus.com' : 'cliente@nexus.com';
-    const password = 'Password123!';
+    const email = role === 'admin' ? 'test_user_unique@nexus.com' : 'gabriel@test.com';
+    const password = role === 'admin' ? 'Password123!' : '123';
     await login({ email, password });
   };
 
