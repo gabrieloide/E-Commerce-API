@@ -361,18 +361,3 @@ When redirected to the Stripe Checkout page, use:
 - **Postal Code:** Any valid ZIP code (e.g. `94105` or `10001`)
 
 ---
-
-## 📜 Roadmap Checklist
-
-- [x] **User Authentication:** Registration & login with JWT tokens and password validation
-- [x] **Role-Based Authorization:** Separate policies for `customer` and `admin` roles
-- [x] **Input Validation:** Request validation using **FluentValidation** and custom endpoint filters
-- [x] **Product Catalog:** Full CRUD operations for products & categories
-- [x] **Search & Filters:** Search by query term and filter by category with EF Core LINQ
-- [x] **Shopping Cart:** Reactive cart with real-time totals and localStorage persistence
-- [x] **Payment Gateway:** External checkout integration using **Stripe Checkout**
-- [x] **Webhook Synchronization:** Webhook handler with signature verification for payment fulfillment
-- [x] **Transactional Inventory:** Pre-order stock verification and post-payment atomic deduction
-- [x] **Order History:** Customer order history with order items and status tracking
-- [x] **Admin Dashboard:** In-store admin interface for inventory and product catalog management
-- [x] **Automated Testing:** 19/19 passing integration and unit tests with xUnit and WebApplicationFactory
