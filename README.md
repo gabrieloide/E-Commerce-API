@@ -6,9 +6,6 @@
 [![Tailwind CSS v4](https://img.shields.io/badge/Tailwind_CSS-v4-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
 [![Stripe](https://img.shields.io/badge/Stripe-Checkout_%26_Webhooks-635BFF?logo=stripe&logoColor=white)](https://stripe.com/)
 [![Tests](https://img.shields.io/badge/xUnit-19_Passed-brightgreen?logo=dotnet&logoColor=white)](#-automated-testing-suite)
-[![Roadmap.sh](https://img.shields.io/badge/Roadmap.sh-E--Commerce_API-orange)](https://roadmap.sh/projects/ecommerce-api)
-
-A production-ready full-stack E-Commerce platform built following the **[Roadmap.sh E-Commerce API](https://roadmap.sh/projects/ecommerce-api)** specification.
 
 It features a high-performance **ASP.NET Core Minimal API (.NET 10)** backend with JWT authentication, role-based authorization, **FluentValidation** pipeline filters, Entity Framework Core 10 with SQLite, transactional inventory management, and **Stripe Checkout & Webhook** reconciliation. On the frontend, it provides an ultra-responsive storefront crafted with **React 19**, **TypeScript**, and **Tailwind CSS v4**.
 
