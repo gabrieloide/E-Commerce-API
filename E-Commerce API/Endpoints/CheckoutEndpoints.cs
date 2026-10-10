@@ -1,8 +1,10 @@
 ﻿using E_Commerce_API.Models;
 using E_Commerce_API.Services;
+using E_Commerce_API.Validators;
 using EcommerceApi.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Stripe;
 using Stripe.Checkout;
 using System.Runtime.CompilerServices;
 using System.Security.Claims;
@@ -17,11 +19,83 @@ namespace E_Commerce_API.Endpoints
             var group = app.MapGroup("/api/checkout");
 
             group.MapPost("/", Checkout)
-                .RequireAuthorization();
+                .RequireAuthorization()
+                .AddEndpointFilter<ValidatorFilter<CheckoutRequestDto>>();
 
             group.MapGet("/orders", GetOrders)
                 .RequireAuthorization();
+
+            group.MapPost("webhook", HandleStripeWebhook);
         }
+
+        private static async Task<IResult> HandleStripeWebhook(HttpRequest request, ECommerceDb db, IConfiguration config)
+        {
+            var json = await new StreamReader(request.Body).ReadToEndAsync();
+
+            var webhookSecret = config["Stripe:WebhookSecret"] ?? "your_webhook_secret";
+            Event stripeEvent;
+            try
+            {
+                stripeEvent = EventUtility.ConstructEvent(json, request.Headers["Stripe-Signature"], webhookSecret);
+
+            }
+            catch (Exception e)
+            {
+                return Results.BadRequest($"Webhook error: {e.Message}");
+            }
+
+            if (stripeEvent.Type == EventTypes.CheckoutSessionCompleted)
+            {
+                var session = stripeEvent.Data.Object as Session;
+
+                if (session != null && int.TryParse(session.ClientReferenceId, out int orderId))
+                {
+                    var order = await db.Orders
+                        .Include(o => o.Items)
+                        .FirstOrDefaultAsync(o => o.Id == orderId);
+
+                    if (order != null && order.Status == OrderStatus.Pending)
+                    {
+                        using var transaction = await db.Database.BeginTransactionAsync();
+                        try
+                        {
+                            bool hasSufficientStock = true;
+                            foreach (var item in order.Items)
+                            {
+                                int rowsAffected = await db.Products
+                                    .Where(p => p.Id == item.ProductId && p.Stock >= item.Quantity)
+                                    .ExecuteUpdateAsync(s => s.SetProperty(p => p.Stock, p => p.Stock - item.Quantity));
+
+                                if(rowsAffected == 0)
+                                {
+                                    hasSufficientStock = false;
+                                    break;
+                                }
+                            }
+                            if(hasSufficientStock)
+                            {
+                                order.Status = OrderStatus.Completed;
+                                await db.SaveChangesAsync();
+                                await transaction.CommitAsync();
+                            }
+                            else
+                            {
+                                await transaction.RollbackAsync();
+                                order.Status = OrderStatus.Cancelled;
+                                await db.SaveChangesAsync();
+                            }
+                        }
+                        catch
+                        {
+                            await transaction.RollbackAsync();
+                            throw;
+                        }
+                    }
+                }
+            }
+            return Results.Ok();
+        }
+
         public static async Task<IResult> GetOrders(ECommerceDb db, ClaimsPrincipal user)
         {
             var userIdClaim = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -37,12 +111,9 @@ namespace E_Commerce_API.Endpoints
                 .ToListAsync();
             return Results.Ok(orders);
         }
+
         public static async Task<IResult> Checkout(CheckoutRequestDto request, ECommerceDb db, ClaimsPrincipal user, PaymentService paymentServices)
         {
-            if (request == null || request.Items == null || !request.Items.Any())
-            {
-                return Results.BadRequest("Invalid checkout request.");
-            }
             // Validate stock availability
             foreach (var item in request.Items)
             {
@@ -75,7 +146,6 @@ namespace E_Commerce_API.Endpoints
             {
                 var product = await db.Products.FindAsync(item.ProductId);
 
-                product.Stock -= item.Quantity;
                 totalAmount += product.Price * item.Quantity;
 
                 order.Items.Add(new OrderItem
@@ -87,13 +157,15 @@ namespace E_Commerce_API.Endpoints
 
             }
 
-            var stripeUrl = await paymentServices.CreateCheckoutSessionAsync(order);
 
             order.UserId = userId;
             order.TotalAmount = totalAmount;
+            order.Status = OrderStatus.Pending;
 
             db.Orders.Add(order);
             await db.SaveChangesAsync();
+
+            var stripeUrl = await paymentServices.CreateCheckoutSessionAsync(order);
             return Results.Ok(new {
                 OrderId = order.Id,
                 CheckoutUrl = stripeUrl,

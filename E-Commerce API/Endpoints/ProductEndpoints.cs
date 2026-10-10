@@ -1,4 +1,5 @@
 ﻿using E_Commerce_API.Models;
+using E_Commerce_API.Validators;
 using EcommerceApi.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,7 +15,8 @@ namespace E_Commerce_API.Endpoints
 
             //Admin-only endpoints
             group.MapPost("/", CreateProduct)
-                .RequireAuthorization(policy => policy.RequireRole("admin"));
+                .RequireAuthorization(policy => policy.RequireRole("admin"))
+                .AddEndpointFilter<ValidatorFilter<CreateProductDto>>();
 
             group.MapPut("/{id:int}", UpdateProduct)
                 .RequireAuthorization(policy => policy.RequireRole("admin"));

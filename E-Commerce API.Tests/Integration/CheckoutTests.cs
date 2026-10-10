@@ -72,7 +72,7 @@ public class CheckoutTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
-    public async Task Checkout_WithValidItems_ReturnsOkAndDeductsStock()
+    public async Task Checkout_WithValidItems_ReturnsOkAndPreservesStockUntilPayment()
     {
         await TestAuthHelper.AuthenticateAsync(_client, "customer@ecommerce.com", "customerpassword123");
 
@@ -93,11 +93,22 @@ public class CheckoutTests : IClassFixture<CustomWebApplicationFactory>
         Assert.True(json.TryGetProperty("checkoutUrl", out var checkoutUrl));
         Assert.Contains("stripe.com", checkoutUrl.GetString());
 
-        // Verify stock deduction in database
+        // Stock MUST remain intact until Stripe webhook confirms payment!
         var productResponse = await _client.GetAsync($"/api/products/{targetProduct.Id}");
-        var updatedProduct = await productResponse.Content.ReadFromJsonAsync<Product>();
-        Assert.NotNull(updatedProduct);
-        Assert.Equal(originalStock - 2, updatedProduct.Stock);
+        var currentProduct = await productResponse.Content.ReadFromJsonAsync<Product>();
+        Assert.NotNull(currentProduct);
+        Assert.Equal(originalStock, currentProduct.Stock);
+    }
+
+    [Fact]
+    public async Task Webhook_WithInvalidSignature_ReturnsBadRequest()
+    {
+        var content = new StringContent("{\"id\": \"evt_mock\"}", System.Text.Encoding.UTF8, "application/json");
+        content.Headers.Add("Stripe-Signature", "t=123,v1=invalidsig");
+
+        var response = await _client.PostAsync("/api/checkout/webhook", content);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]

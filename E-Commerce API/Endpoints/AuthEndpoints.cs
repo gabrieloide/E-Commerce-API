@@ -4,23 +4,21 @@
     using EcommerceApi.Models;
     using Microsoft.EntityFrameworkCore;
     using E_Commerce_API.Services;
-
+    using E_Commerce_API.Validators;
 
     public static class AuthEndpoints
     {
         public static void MapAuthEndpoints(this IEndpointRouteBuilder app)
         {
             var group = app.MapGroup("/api/auth");
-            group.MapPost("/register", HandleRegister);
-            group.MapPost("/login", HandleLogin);
+            group.MapPost("/register", HandleRegister)
+                .AddEndpointFilter<ValidatorFilter<RegisterDto>>();
+            group.MapPost("/login", HandleLogin)
+                .AddEndpointFilter<ValidatorFilter<LoginDto>>();
         }
 
         private static async Task<IResult> HandleRegister(RegisterDto dto, ECommerceDb db)
         {
-            if (string.IsNullOrEmpty(dto.Name) || string.IsNullOrEmpty(dto.Email) || string.IsNullOrEmpty(dto.Password))
-            {
-                return Results.BadRequest("Name, Email, and Password are required.");
-            }
 
             if (await db.Users.AnyAsync(u => u.Email.ToLower() == dto.Email.ToLower()))
             {
@@ -45,10 +43,6 @@
         }
         private static async Task<IResult> HandleLogin(LoginDto dto, ECommerceDb db, TokenService tokenservice)
         {
-            if (string.IsNullOrEmpty(dto.Email) || string.IsNullOrEmpty(dto.Password))
-            {
-                return Results.BadRequest("Email and Password are required.");
-            }
             var user = await db.Users.FirstOrDefaultAsync(u => u.Email == dto.Email && u.Password == dto.Password);
             if (user == null) return Results.Problem("Invalid email or password.", statusCode: 401);
 

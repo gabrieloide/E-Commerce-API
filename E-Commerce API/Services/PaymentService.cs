@@ -30,7 +30,8 @@ namespace E_Commerce_API.Services
                 LineItems = lineItems,
                 Mode = "payment",
                 SuccessUrl = $"http://localhost:5173/?success=true&orderId={order.Id}",
-                CancelUrl = "http://localhost:5173/?canceled=true"
+                CancelUrl = "http://localhost:5173/?canceled=true",
+                ClientReferenceId = order.Id.ToString()
             };
             var service = new SessionService();
             Session session = await service.CreateAsync(options);

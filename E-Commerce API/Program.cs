@@ -8,6 +8,7 @@ using E_Commerce_API.Options;
 using Stripe;
 using TokenService = E_Commerce_API.Services.TokenService;
 using E_Commerce_API.Services;
+using FluentValidation;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -15,6 +16,7 @@ var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<ECommerceDb>(options =>
     options.UseSqlite(connectionString));
+builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 
 builder.Services.AddCors(options =>
 {
