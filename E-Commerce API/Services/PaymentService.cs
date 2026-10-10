@@ -1,11 +1,11 @@
-﻿using E_Commerce_API.Models;
+using E_Commerce_API.Models;
 using Stripe.Checkout;
 
 namespace E_Commerce_API.Services
 {
     public class PaymentService
     {
-        public async Task<string> CreateCheckoutSessionAsync(Order order)
+        public virtual async Task<string> CreateCheckoutSessionAsync(Order order)
         {
             var lineItems = new List<SessionLineItemOptions>();
 

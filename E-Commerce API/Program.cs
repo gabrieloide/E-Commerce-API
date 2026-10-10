@@ -69,3 +69,5 @@ app.MapProductsEndpoints();
 app.MapCheckoutEndpoints();
 
 app.Run();
+
+public partial class Program { }

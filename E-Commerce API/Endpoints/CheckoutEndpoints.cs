@@ -89,7 +89,6 @@ namespace E_Commerce_API.Endpoints
 
             var stripeUrl = await paymentServices.CreateCheckoutSessionAsync(order);
 
-
             order.UserId = userId;
             order.TotalAmount = totalAmount;
 
