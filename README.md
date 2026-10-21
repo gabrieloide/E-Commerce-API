@@ -117,7 +117,7 @@ E-Commerce API/
 ## 🛡️ Key Backend Features
 
 ### 1. Authentication & Role-Based Access Control
-- Passwords and user accounts stored in SQLite.
+- User accounts stored in SQLite; passwords are never stored in plain text, only as salted PBKDF2 hashes produced by ASP.NET Core's `PasswordHasher<User>`.
 - JWT tokens issued via `TokenService` contain claims for user identity and role.
 - Role-protected endpoints enforce authorization using ASP.NET Core policies (e.g., `.RequireAuthorization(policy => policy.RequireRole("admin"))`).
 

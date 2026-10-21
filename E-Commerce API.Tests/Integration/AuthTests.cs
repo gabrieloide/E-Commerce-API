@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using EcommerceApi.Models;
 using E_Commerce_API.Tests.Infrastructure;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace E_Commerce_API.Tests.Integration;
 
@@ -30,6 +31,28 @@ public class AuthTests : IClassFixture<CustomWebApplicationFactory>
         var response = await _client.PostAsJsonAsync("/api/auth/register", registerDto);
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Register_StoresHashedPassword_AndDoesNotReturnIt()
+    {
+        var registerDto = new RegisterDto(
+            "Hashed User",
+            "hashed.user@ecommerce.com",
+            "password123",
+            "customer"
+        );
+
+        var response = await _client.PostAsJsonAsync("/api/auth/register", registerDto);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("password", body, StringComparison.OrdinalIgnoreCase);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ECommerceDb>();
+        var storedUser = db.Users.Single(u => u.Email == "hashed.user@ecommerce.com");
+        Assert.NotEqual("password123", storedUser.PasswordHash);
     }
 
     [Fact]

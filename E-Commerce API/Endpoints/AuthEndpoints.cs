@@ -2,6 +2,7 @@
 {
     using E_Commerce_API.Models;
     using EcommerceApi.Models;
+    using Microsoft.AspNetCore.Identity;
     using Microsoft.EntityFrameworkCore;
     using E_Commerce_API.Services;
     using E_Commerce_API.Validators;
@@ -17,7 +18,7 @@
                 .AddEndpointFilter<ValidatorFilter<LoginDto>>();
         }
 
-        private static async Task<IResult> HandleRegister(RegisterDto dto, ECommerceDb db)
+        private static async Task<IResult> HandleRegister(RegisterDto dto, ECommerceDb db, IPasswordHasher<User> passwordHasher)
         {
 
             if (await db.Users.AnyAsync(u => u.Email.ToLower() == dto.Email.ToLower()))
@@ -32,19 +33,31 @@
             {
                 Name = dto.Name,
                 Email = dto.Email,
-                Password = dto.Password,
                 Role = dto.Role
             };
+            user.PasswordHash = passwordHasher.HashPassword(user, dto.Password);
 
             db.Users.Add(user);
             await db.SaveChangesAsync();
 
-            return Results.Created($"/api/users/{user.Id}", user);
+            var userDto = new UserDto(user.Id, user.Name, user.Email, user.Role);
+            return Results.Created($"/api/users/{user.Id}", userDto);
         }
-        private static async Task<IResult> HandleLogin(LoginDto dto, ECommerceDb db, TokenService tokenservice)
+        private static async Task<IResult> HandleLogin(LoginDto dto, ECommerceDb db, TokenService tokenservice, IPasswordHasher<User> passwordHasher)
         {
-            var user = await db.Users.FirstOrDefaultAsync(u => u.Email == dto.Email && u.Password == dto.Password);
+            var user = await db.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
             if (user == null) return Results.Problem("Invalid email or password.", statusCode: 401);
+
+            var result = passwordHasher.VerifyHashedPassword(user, user.PasswordHash, dto.Password);
+            if (result == PasswordVerificationResult.Failed)
+                return Results.Problem("Invalid email or password.", statusCode: 401);
+
+            // The hasher's defaults got stronger since this hash was stored; upgrade it while we have the plain password.
+            if (result == PasswordVerificationResult.SuccessRehashNeeded)
+            {
+                user.PasswordHash = passwordHasher.HashPassword(user, dto.Password);
+                await db.SaveChangesAsync();
+            }
 
             var token = tokenservice.GenerateToken(user);
             var userDto = new UserDto(user.Id, user.Name, user.Email, user.Role);

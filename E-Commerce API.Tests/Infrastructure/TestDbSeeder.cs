@@ -1,10 +1,13 @@
 using E_Commerce_API;
 using E_Commerce_API.Models;
+using Microsoft.AspNetCore.Identity;
 
 namespace E_Commerce_API.Tests.Infrastructure;
 
 public static class TestDbSeeder
 {
+    private static readonly PasswordHasher<User> PasswordHasher = new();
+
     public static void Seed(ECommerceDb db)
     {
         // Clean existing records if any
@@ -49,16 +52,16 @@ public static class TestDbSeeder
         {
             Name = "Admin User",
             Email = "admin@ecommerce.com",
-            Password = "adminpassword123",
             Role = "admin"
         };
+        adminUser.PasswordHash = PasswordHasher.HashPassword(adminUser, "adminpassword123");
         var customerUser = new User
         {
             Name = "Regular Customer",
             Email = "customer@ecommerce.com",
-            Password = "customerpassword123",
             Role = "customer"
         };
+        customerUser.PasswordHash = PasswordHasher.HashPassword(customerUser, "customerpassword123");
         db.Users.AddRange(adminUser, customerUser);
 
         db.SaveChanges();

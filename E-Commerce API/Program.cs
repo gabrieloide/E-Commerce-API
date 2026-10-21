@@ -9,6 +9,8 @@ using Stripe;
 using TokenService = E_Commerce_API.Services.TokenService;
 using E_Commerce_API.Services;
 using FluentValidation;
+using Microsoft.AspNetCore.Identity;
+using E_Commerce_API.Models;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -40,6 +42,7 @@ var jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>();
 builder.Services.AddSingleton(jwtOptions);
 builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<PaymentService>();
+builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
 
 var keyHandler = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key));
 
